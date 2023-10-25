@@ -1,0 +1,56 @@
+.wrong_option {
+    border: rgb(255, 81, 81) solid 2px;
+}
+
+.correct_option {
+    border: rgb(101, 255, 81) solid 2px;
+}
+
+#searchbar input {
+    flex: fit-content;
+    background: none;
+    border: none;
+    outline: none;
+}
+
+#searchbar {
+    display: flex;
+    height: 40px;
+    background-color: #fff;
+    border: 5px #0059ff solid;
+    border-radius: 50px;
+    box-shadow: 10px 10px 5px 0px rgba(0, 0, 0, 0.2);
+}
+
+#searchbar button:hover {
+    background-color: #0059ff;
+    color: #fff;
+}
+
+#searchbar button {
+    cursor: pointer;
+    width: 10%;
+    background-color: #fff;
+    border: 5px #5993ff solid;
+    border-radius: 50px;
+}
+
+.render_qa_question {
+    box-shadow: 10px 10px 5px 0px rgba(0, 0, 0, 0.2);
+    margin: 10px;
+    padding-top: 1%;
+    display: grid;
+}
+
+img {
+    height: 256px;
+}
+
+#div_content {
+    display: flex;
+    justify-content: center;
+}
+
+#options_div{
+    display: flex;
+}
