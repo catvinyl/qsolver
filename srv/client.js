@@ -10,10 +10,14 @@ if (typeof document == 'object') {
 }
 
 function api(pth, objData, func){
+    document.body.style.cursor = 'wait';
+    element_progressbar.style.display = '';
     const data = encodeURIComponent(JSON.stringify(objData));
     fetch(location.origin + '/' + pth + '?a=' + data, { "method": "GET" }).then(async function (response) {
         const text = await response.text();
         const json = JSON.parse(text);
+        document.body.style.cursor = '';
+        element_progressbar.style.display = 'none';
         if(func){
             func(json, pth);
         }
@@ -98,3 +102,11 @@ go_btn.onclick = function (){
         renderQA(data);
     });
 }
+
+clear_btn.onclick = function () {
+    while (div_content.firstChild) {
+        div_content.removeChild(div_content.lastChild);
+    }
+}
+
+element_progressbar.style.display = 'none';

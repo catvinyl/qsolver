@@ -6,7 +6,9 @@ const portServer = 5821;
 const srvPath = 'srv';
 var srvFiles = {};
 
-const filesInMemory = false; 
+var filesInMemory = false; 
+
+
 
 const mimeType = { 'html': 'text/html', 'js': 'text/javascript', 'css': 'text/css'};
 
@@ -49,10 +51,11 @@ function httpServerHandle(request, response){
     const file = srvFiles[pth];
     if (typeof file == 'object'){
         if(file.custom){
-            return file.custom(request, response);
+            file.custom(request, response);
         }else{
             responseFile(file, response);
         }
+        return;
     }
     if(typeof file == 'string'){
         fs.readFile(file, function (err, data) {
@@ -104,6 +107,9 @@ function setApi(pth, func){
     });
 }
 function init() {
+    if (Number(process.env.PRODUCTION) == 1) {
+        filesInMemory = true;
+    }
     scanSrv();
     http.createServer(httpServerHandle).listen(portServer);
     console.log('Server port: ' + portServer);

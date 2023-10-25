@@ -54,3 +54,16 @@ img {
 #options_div{
     display: flex;
 }
+
+html {
+    height: 100%;
+}
+
+body {
+    min-height: 100%;
+}
+
+progress{
+    width: 100%;
+    height: 2px;
+}

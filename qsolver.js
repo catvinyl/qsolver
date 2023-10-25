@@ -1,6 +1,7 @@
 const fs = require('fs');
 const naurok = require('./naurok.js');
 const server = require('./server.js');
+const searchxng = require('./searchxng.js');
 var secretsData = {};
 
 function loadSecrets(){
@@ -17,6 +18,35 @@ function loadSecrets(){
 
 loadSecrets();
 
+function filterDomain (array, origin){
+    var newArray = [];
+    for (let i = 0; i < array.length; i++) {
+        const url = array[i].url;
+        const urlObj = new URL(url);
+        if(urlObj.origin == origin){
+            newArray.push(array[i]);
+        }
+    }
+    return newArray;
+}
+
+function getRandomInt(min, max) {
+    min = Math.ceil(min);
+    max = Math.floor(max);
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function urlEndsWith(array, text) {
+    var newArray = [];
+    for (let i = 0; i < array.length; i++) {
+        const url = array[i].url;
+        if (url.endsWith(text)) {
+            newArray.push(array[i]);
+        }
+    }
+    return newArray;
+}
+
 server.setApi('api/completeTest', async function (o){
     var url;
     try {
@@ -24,14 +54,23 @@ server.setApi('api/completeTest', async function (o){
     } catch (error) {
     }
     if(!url){
-        o.data = 'https://' + o.data;
         try {
-            url = new URL(o.data);
+            url = new URL('https://' + o.data);
+            o.data = 'https://' + o.data;
         } catch (error) {
         }
     }
     if(!url){
-        return { error: 'Не посилання!' };
+        const filterText = 'site:naurok.com.ua/test "'
+        const query = filterText + o.data.slice(0, 500 - filterText.length - 1) + '"';
+        var searchArray = await searchxng.search(query);
+        searchArray = filterDomain(urlEndsWith(searchArray, '.html'), 'https://naurok.com.ua');
+        if (searchArray.length > 0){
+            url = searchArray[getRandomInt(0, searchArray.length - 1)].url;
+            o.data = url;
+        }else{
+            return { error: 'Спробуй щось інше або спробуйте ще раз!' };
+        }
     }
     const out = await naurok.completeTest(o.data);
     if(out.error){
