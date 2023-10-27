@@ -1,5 +1,16 @@
 var authdata = {};
 const endpoint = 'https://naurok.com.ua';
+const nhp = require('node-html-parser');
+
+async function getTitle(url) {
+    const response = await fetch(url);
+    const text = await response.text();
+    const root = nhp.parse(text);
+    const title = root.querySelector('title');
+    if(title){
+        return title.textContent;
+    }
+}
 
 function setSecrets (data){
     authdata = data;
@@ -27,6 +38,30 @@ function createDeadline (left_minutes){
     }
     const deadline_time = hour + ':' + minute;
     return [deadline_date, deadline_time];
+}
+
+async function template_post (url){
+    const csrfdata = await csrfGet();
+    var body = {
+        '_csrf': csrfdata._csrf
+    };
+    const res = await fetch(url, {
+        "headers": {
+            "content-type": "application/x-www-form-urlencoded",
+            "cookie": "PHPSESSID=" + authdata.authtoken + "; _csrf=" + csrfdata._csrfCookie
+        },
+        "body": new URLSearchParams(body).toString(),
+        "method": "POST"
+    });
+    return res;
+}
+
+async function stopHomework (homework_url){
+    return await template_post(homework_url + '/stop');
+}
+
+async function deleteHomework(homework_url) {
+    return await template_post(homework_url + '/delete');
 }
 
 async function createHomework(url, name, deadline) {
@@ -59,13 +94,23 @@ async function createHomework(url, name, deadline) {
     });
     var html = (await res.text()).toString();
     var gamecode = html.split('gamecode=');
+    var homework_id = findLineWithText(html, 'action="/test/homework/').split('"');
+    var homework_url;
+    if(homework_id.length == 7){
+        homework_id = homework_id[3];
+        homework_url = homework_id;
+        homework_id = homework_id.split('/');
+        homework_id = homework_id[homework_id.length - 1];
+    }else {
+        homework_id = null;
+    }
     if (gamecode.length > 1) {
         gamecode = gamecode[1];
     } else {
         return res;
     }
     gamecode = gamecode.split('"')[0];
-    return endpoint + '/test/join?gamecode=' + gamecode;
+    return { game_url: endpoint + '/test/join?gamecode=' + gamecode, gamecode: gamecode, homework_url: endpoint + homework_url, homework_id: homework_id };
 }
 
 async function getHomework(session_id){
@@ -80,7 +125,15 @@ async function getHomework(session_id){
     }
 }
 
+var csrfcache = {}; 
 async function csrfGet(url){
+    const timestamp = Math.floor((new Date()).getTime() / 1000);
+    const period = 60 * 60; // hour
+    if(csrfcache.timestamp){
+        if (timestamp - csrfcache.timestamp < period){
+            return csrfcache;
+        }
+    }
     const r = await fetch(url || endpoint, {
         "method": "GET"
     });
@@ -98,7 +151,8 @@ async function csrfGet(url){
             return;
         }
     }
-    return { _csrf: csrfToken, _csrfCookie: cookies};
+    csrfcache = { _csrf: csrfToken, _csrfCookie: cookies, timestamp: timestamp};
+    return csrfcache;
 }
 
 function findLineWithText(text, find){
@@ -176,38 +230,58 @@ function selectAnswers(question){
 
 async function completeTest(url){
     const deadline = createDeadline(24 * 60);
-    const homeworkUrl = await createHomework(url, deadline[0] + ' ' + deadline[1], deadline);
-    if(typeof homeworkUrl != 'string'){
+    const title = await getTitle(url);
+    if (title == 'Not Found (#404)'){
+        return { error: ' Not Found (#404)' };
+    }
+    const name_homework = title.split(' | ')[0] + ' ' + deadline[0] + ' ' + deadline[1];
+    const homeworkOwned = await createHomework(url, name_homework.slice(0, 254), deadline);
+    const homeworkUrl = homeworkOwned.homework_url;
+    if(!homeworkUrl){
         return { error: homeworkUrl.statusText };
     }
-    const gamecode = getGamecode(homeworkUrl);
-    if (!gamecode) {
-        return;
-    }
-    const session_id = await joinHomework(gamecode, 'Учень');
+    // const gamecode = getGamecode(homeworkUrl);
+    // if (!gamecode) {
+    //     return;
+    // }
+    const session_id = await joinHomework(homeworkOwned.gamecode, 'Учень');
     const homework = await getHomework(session_id);
     const questions = homework.questions;
     homework.answers = [];
+    // console.log(homework, url, homeworkUrl);
+    if(homework.document.questions == 0){
+        return;
+    }
     for (let i = 0; i < questions.length; i++) {
         const question = questions[i];
         const response = await answerHomework(session_id, selectAnswers(question), question.id);
         homework.answers.push(response);
     }
+    stopHomework(homeworkOwned.homework_url).then(function () {
+        deleteHomework(homeworkOwned.homework_url)
+    });
+    homework.title = title;
     return homework;
 }
 
+async function init(){
+    await csrfGet();
+}
+
+init();
 async function test (){
-    // const url = endpoint + '/test/uzagalnennya-znan-z-temi-geografichniy-prostir-ukra-ni-2472351.html';
+    const url = endpoint + '/test/uzagalnennya-znan-z-temi-geografichniy-prostir-ukra-ni-2472351.html';
     // return await completeTest(url);
-    const res = await csrfGet()
-    console.log(res);
+    // const res = await csrfGet()
+    // console.log(res);
+    return await getTitle(url);
 }
 
 if(false){
     test().then(function (res){
         console.log(res);
-        const fs = require('fs');
-        fs.writeFileSync('test.json', JSON.stringify(res), { encoding: 'utf-8'});
+        // const fs = require('fs');
+        // fs.writeFileSync('test.json', JSON.stringify(res), { encoding: 'utf-8'});
     });
 }
 

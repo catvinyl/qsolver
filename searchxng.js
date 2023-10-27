@@ -33,20 +33,35 @@ function getRandomInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-async function search(query) {
+async function search(query, tryx) {
+    var tryx = tryx || 10;
+    tryx--;
     if(instances.length == 0){
         instances = await get_instances();
     }
     const endpointId = getRandomInt(0, instances.length - 1);
     const endpoint = instances[endpointId];
-    var response
+    var response;
     try {
-        response = await fetch(endpoint, { "body": "q=" + encodeURIComponent(query), "method": "POST", "headers": { "Content-Type": "application/x-www-form-urlencoded"}});
+        response = await fetch(endpoint, { "body": "q=" + encodeURIComponent(query) + '&language=all', "method": "POST", "headers": { "Content-Type": "application/x-www-form-urlencoded"}});
     } catch (error) {
         return await search(query);
     }
     const text = await response.text();
     const root = nhp.parse(text);
+    const answers = root.querySelectorAll('.answer');
+    var answersArray = [];
+    for (let i = 0; i < answers.length; i++) {
+        const answer = answers[i];
+        const description = answer.querySelector('span');
+        const a = answer.querySelector('a');
+        const o = {
+            description: description.textContent,
+            url: a.getAttribute('href'),
+        };
+        answersArray.push(o);
+    }
+
     const results = root.querySelectorAll('.result');
     var array = [];
     for (let i = 0; i < results.length; i++) {
@@ -61,7 +76,12 @@ async function search(query) {
         };
         array.push(o);
     }
-    return array;
+    if(tryx != 0){
+        if(results.length == 0){
+            return await search(query, tryx);
+        }
+    }
+    return { results: array, answers: answersArray, endpoint: endpoint };
 }
 
 exports.search = search;

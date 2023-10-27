@@ -91,16 +91,96 @@ function renderQA (data){
             render_qa.appendChild(div);
         }
     }
-    div_content.appendChild(render_qa);
+    return render_qa;
 }
 
-go_btn.onclick = function (){
-    api('api/completeTest', { data: input_text.value }, function (data){
-        if(data.error){
-            return alert('Error: ' + data.error);
+function renderElement (data){
+    if (data.error) {
+        return;
+    }
+    if(data.type == 'test'){
+        return renderQA(data);
+    }
+    var render_qa = document.createElement('div');
+    render_qa.className = 'render_qa';
+
+    if(data.title){
+        var title = document.createElement('h2');
+        title.innerText = data.title;
+        render_qa.appendChild(title);
+    }
+
+    if (data.description) {
+        var description = document.createElement('span');
+        description.innerText = data.description;
+        render_qa.appendChild(description);
+    }
+
+    if (data.image) {
+        var img = document.createElement('img');
+        img.src = data.image;
+        render_qa.appendChild(img);
+    }
+    if (data.url) {
+        var a = document.createElement('a');
+        a.href = data.url;
+        a.innerText = data.url;
+        render_qa.appendChild(a);
+    }
+
+    return render_qa;
+}
+
+function renderResponse(data){
+    var render_response = document.createElement('div');
+    render_response.className = 'render_response';
+    div_content.appendChild(render_response);
+    if (data.error) {
+        return render_response.appendChild(renderElement({ title: 'Помилка!', description: data.error }));
+    }
+    for (let i = 0; i < data.length; i++) {
+        const element = data[i];
+        const dom_element = renderElement(element);
+        if(dom_element){
+            render_response.appendChild(dom_element);
         }
-        renderQA(data);
-    });
+    }
+    hint_load();
+}
+
+function render_selectOption (data){
+    const array = data.array;
+    for (let i = 0; i < array.length; i++) {
+        const text = array[i];
+        var title = document.createElement('h2');
+        title.className = 'selectOption';
+        title.innerText = text;
+        title.i = i;
+        hint_search.onclick = function (e) {
+            api('api/qhistory', { i: e.target.i }, renderResponse);
+        }
+        hint_search.appendChild(title);
+    }
+}
+
+function hint_load(){
+    while (hint_search.firstChild) {
+        hint_search.removeChild(hint_search.lastChild);
+    }
+    api('api/history', {}, render_selectOption);
+}
+
+hint_load();
+
+go_btn.onclick = function (){
+    document.title = 'qsolver - ' + input_text.value;
+    api('api/q', { data: input_text.value }, renderResponse);
+}
+
+input_text.onkeyup = function (e) {
+    if (e.key === 'Enter') {
+        go_btn.onclick();
+    }
 }
 
 clear_btn.onclick = function () {
